@@ -5,7 +5,7 @@ import numpy as np
 import subprocess
 import time
 
-from retinaface import RetinaFace
+from facenet_pytorch import MTCNN
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
@@ -39,17 +39,16 @@ def extract_frames(video_path):
 
     return sorted([os.path.join(TEMP_DIR, f) for f in os.listdir(TEMP_DIR)])
 
-def detect_face(image):
-    faces = RetinaFace.detect_faces(image)
+mtcnn = MTCNN(keep_all=False, device=DEVICE)
 
-    if not faces:
+def detect_face(image):
+    boxes, _ = mtcnn.detect(image)
+    if boxes is None:
         return None
 
-    first_face = list(faces.values())[0]
-    x1, y1, x2, y2 = first_face["facial_area"]
-
-    face_crop = image[y1:y2, x1:x2]
-    return face_crop
+    x1, y1, x2, y2 = boxes[0]
+    face = image[int(y1):int(y2), int(x1):int(x2)]
+    return face
 
 def preprocess(face_img):
     face_img = cv2.resize(face_img, (224, 224))
