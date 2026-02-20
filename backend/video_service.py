@@ -69,3 +69,24 @@ def predict(tensor):
 
 def aggregate_scores(scores):
     return float(sum(scores) / len(scores))
+
+def generate_gradcam(tensor):
+    try:
+        target_layers = [model.features[-2]]  # last conv layer
+
+        cam = GradCAM(model=model, target_layers=target_layers)
+        targets = [ClassifierOutputTarget(1)]
+
+        grayscale_cam = cam(input_tensor=tensor, targets=targets)[0]
+
+        rgb_img = tensor.squeeze().permute(1, 2, 0).cpu().numpy()
+        heatmap = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
+
+        heatmap_path = os.path.join(TEMP_DIR, "heatmap.jpg")
+        cv2.imwrite(heatmap_path, heatmap)
+
+        return heatmap_path
+
+    except Exception as e:
+        print("GradCAM failed:", e)
+        return None
