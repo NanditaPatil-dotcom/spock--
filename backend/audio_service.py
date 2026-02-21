@@ -118,7 +118,6 @@ def analyze_audio(video_path):
     print(f"[AUDIO] Score: {prob:.3f} | Time: {time.time() - start:.2f}s")
 
     return {
-        "type": "audio",
-        "audio_probability": prob,
-        "status":status
+        "fake_probability": fake_prob,
+        "label": "Fake" if fake_prob > 0.5 else "Real"
     }
