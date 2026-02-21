@@ -1,55 +1,45 @@
+import os
+import librosa
+import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from sklearn.model_selection import train_test_split
-from audio_dataset import load_audio_dataset
+from torch.utils.data import Dataset
 
-DEVICE = "cpu"
+class AudioDataset(Dataset):
+    def __init__(self, file_paths, labels):
+        self.file_paths = file_paths
+        self.labels = labels
 
-class AudioCNN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.model = nn.Sequential(
-            nn.Conv2d(1, 16, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
+    def __len__(self):
+        return len(self.file_paths)
 
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
+    def __getitem__(self, idx):
+        path = self.file_paths[idx]
+        label = self.labels[idx]
 
-            nn.Flatten(),
-            nn.Linear(32 * 32 * 32, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1),
-            nn.Sigmoid()
+        audio, sr = librosa.load(path, sr=16000)
+
+        mel = librosa.feature.melspectrogram(
+            y=audio,
+            sr=sr,
+            n_mels=128,
+            n_fft=1024,
+            hop_length=512
         )
 
-    def forward(self, x):
-        return self.model(x)
+        mel = librosa.power_to_db(mel, ref=np.max)
+        mel = np.nan_to_num(mel)
 
-# Load data
-X, y = load_audio_dataset("audio-dataset")
+        MAX_LEN = 300  # choose fixed time dimension
 
-X_train, _, y_train, _ = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+        mel = torch.tensor(mel).float()
 
-X_train = torch.tensor(X_train).unsqueeze(1).float()
-y_train = torch.tensor(y_train).float().unsqueeze(1)
+        # Pad or trim time dimension
+        if mel.shape[1] < MAX_LEN:
+            pad_size = MAX_LEN - mel.shape[1]
+            mel = torch.nn.functional.pad(mel, (0, pad_size))
+        else:
+            mel = mel[:, :MAX_LEN]
 
-model = AudioCNN().to(DEVICE)
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-loss_fn = nn.BCELoss()
+        mel = mel.unsqueeze(0)  # (1, 128, 300)
 
-for epoch in range(5):
-    optimizer.zero_grad()
-    preds = model(X_train)
-    loss = loss_fn(preds, y_train)
-    loss.backward()
-    optimizer.step()
-
-    print(f"Epoch {epoch+1} | Loss: {loss.item():.4f}")
-
-torch.save(model.state_dict(), "audio_model.pth")
-print("audio_model.pth saved")
+        return mel, torch.tensor(label).float()

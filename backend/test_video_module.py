@@ -4,7 +4,7 @@ import torch
 import cv2
 
 from utils import DEVICE
-from model import load_model
+from video_model import load_model
 from video_service import analyze_video, detect_face
 
 MEDIA_DIR = "media"
