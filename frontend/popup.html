@@ -5,56 +5,144 @@
   <style>
     body {
       width: 320px;
-      font-family: Arial, sans-serif;
-      padding: 10px;
+      margin: 0;
+      padding: 14px;
+      box-sizing: border-box;
+      background: #d2d2d2;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #211f22;
     }
 
-    .row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
+    h1 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      line-height: 1;
+      letter-spacing: 0.2px;
+      color: #111;
+      font-weight: 600;
     }
 
-    button {
-      width: 100%;
-      padding: 8px;
-      margin-top: 8px;
+    #videoInput {
+      display: none;
     }
 
     #chooseBtn {
-      width: auto;
-      margin-top: 0;
-    }
-
-    #fileName {
+      border: 0;
+      border-radius: 8px;
+      background: #3d393d;
+      color: #fff;
+      padding: 6px 12px;
       font-size: 12px;
-      color: #333;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 200px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 0 0 6px;
     }
 
     #status {
-      margin-top: 10px;
-      font-size: 13px;
+      margin: 0 0 12px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.2;
+      color: #333;
     }
+
+    #analyzeBtn {
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      background: #3d393d;
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 0 10px;
+      cursor: pointer;
+    }
+
+    .gauge-shell {
+      background: #ececec;
+      padding: 8px 8px 6px;
+      text-align: center;
+    }
+
+    .gauge{
+      width:252px;
+      height:126px;
+      margin: 0 auto;
+      border-top-left-radius:252px;
+      border-top-right-radius:252px;
+
+      background: conic-gradient(
+        from -90deg at 50% 100%,
+        #1b5e20 0deg 36deg,
+        #4caf50 36deg 72deg,
+        #fdd835 72deg 108deg,
+        #fb8c00 108deg 144deg,
+        #e53935 144deg 180deg,
+        #e53935 180deg 360deg
+      );
+
+      position:relative;
+      overflow:hidden;
+      box-shadow:0 10px 30px rgba(0,0,0,0.15);
+    }
+
+    .arrow{
+      position:absolute;
+      bottom:0;
+      left:50%;
+      width:6px;
+      height:116px;
+      background:black;
+      transform-origin:bottom center;
+      transform:rotate(-90deg);
+      transition: transform 0.8s ease;
+      border-radius:4px;
+    }
+
+    .center{
+      position:absolute;
+      bottom:-7px;
+      left:calc(50% - 7px);
+      width:14px;
+      height:14px;
+      background:black;
+      border-radius:50%;
+    }
+
+    .value{
+      margin-top:16px;
+      font-size:20px;
+      font-weight:600;
+      line-height: 1;
+    }
+
+    .label{
+      font-size:11px;
+      color:#666;
+      margin-top:4px;
+    }
+
   </style>
 </head>
 <body>
-  <h3>DeepVerify</h3>
+  <h1>DeepVerifyy</h1>
 
-  <input type="file" id="videoInput" accept="video/*,audio/*" style="display:none">
+  <input type="file" id="videoInput" accept="video/*,audio/*">
 
-  <div class="row">
-    <button id="chooseBtn" type="button">Choose File</button>
-    <span id="fileName">No file chosen</span>
-  </div>
+  <button id="chooseBtn" type="button">Choose file</button>
+  <p id="status">No file selected</p>
 
   <button id="analyzeBtn" type="button">Analyze</button>
 
-  <p id="status">Idle</p>
+  <div class="gauge-shell">
+    <div class="gauge">
+      <div class="arrow" id="arrow"></div>
+      <div class="center"></div>
+    </div>
+    <div class="value" id="probability">0%</div>
+    <div class="label">Detection Confidence</div>
+  </div>
 
   <script src="popup.js"></script>
 </body>

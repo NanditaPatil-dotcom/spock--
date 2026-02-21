@@ -4,34 +4,161 @@
   <title>DeepVerify Analyzer</title>
   <style>
     body {
-      max-width: 720px;
-      margin: 40px auto;
-      font-family: Arial, sans-serif;
-      padding: 0 16px;
+      width: 300px;
+      margin: 0;
+      padding: 14px;
+      box-sizing: border-box;
+      background: #f4f4f4;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #222;
     }
 
-    button {
-      padding: 10px 14px;
-      margin-top: 12px;
-      min-width: 120px;
+    h1 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    #videoInput {
+      width: 100%;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    #videoInput::file-selector-button {
+      border: none;
+      border-radius: 6px;
+      background: #3d393d;
+      color: #fff;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
     }
 
     #status {
-      margin-top: 16px;
-      font-size: 14px;
+      margin: 4px 0 12px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    #analyzeBtn {
+      width: 100%;
+      border: none;
+      border-radius: 6px;
+      background: #3d393d;
+      color: #fff;
+      padding: 7px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 14px;
+      cursor: pointer;
+    }
+
+    #analyzeBtn:hover {
+      opacity: 0.9;
+    }
+
+    .gauge-shell {
+      background: transparent;
+      text-align: center;
+    }
+
+    .gauge {
+      width: 220px;
+      height: 110px;
+      margin: 0 auto;
+      border-top-left-radius: 220px;
+      border-top-right-radius: 220px;
+
+      /* 🔥 COLORS UNCHANGED (as requested) */
+      background: conic-gradient(
+        from -90deg at 50% 100%,
+        #1b5e20 0deg 36deg,
+        #4caf50 36deg 72deg,
+        #fdd835 72deg 108deg,
+        #fb8c00 108deg 144deg,
+        #e53935 144deg 180deg,
+        #e53935 180deg 360deg
+      );
+
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+
+    .arrow {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 4px;
+      height: 100px;
+      background: #000;
+      transform-origin: bottom center;
+      transform: rotate(-90deg);
+      transition: transform 0.6s ease;
+      border-radius: 3px;
+    }
+
+    .center {
+      position: absolute;
+      bottom: -6px;
+      left: calc(50% - 6px);
+      width: 12px;
+      height: 12px;
+      background: #000;
+      border-radius: 50%;
+    }
+
+    .value {
+      margin-top: 18px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .label {
+      font-size: 11px;
+      color: #777;
+      margin-top: 4px;
+      letter-spacing: 0.5px;
     }
   </style>
 </head>
-<body>
-  <h2>DeepVerify</h2>
-  <p>Select a file here (outside popup) to avoid popup file-dialog crashes.</p>
 
+<body>
+  <h1>DeepVerify</h1>
   <input type="file" id="videoInput" accept="video/*,audio/*">
-  <br>
+  <p id="status">File uploaded</p>
   <button id="analyzeBtn">Analyze</button>
 
-  <p id="status">Idle</p>
+  <div class="gauge-shell">
+    <div class="gauge">
+      <div class="arrow" id="arrow"></div>
+      <div class="center"></div>
+    </div>
+    <div class="value" id="probability">0%</div>
+    <div class="label">Detection Confidence</div>
+  </div>
 
   <script src="analyzer.js"></script>
+
+  <script>
+    function updateGauge(value){
+      value = Math.max(0, Math.min(100, value));
+      const angle = -90 + (value/100)*180;
+
+      document.getElementById("arrow").style.transform =
+        `rotate(${angle}deg)`;
+
+      document.getElementById("probability").innerText =
+        value + "%";
+    }
+
+    function fromBackend(probability){
+      updateGauge(probability);
+    }
+  </script>
+
 </body>
 </html>

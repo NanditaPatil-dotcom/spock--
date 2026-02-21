@@ -3,6 +3,16 @@ const API = "http://127.0.0.1:8000";
 const statusEl = document.getElementById("status");
 const fileInput = document.getElementById("videoInput");
 const analyzeBtn = document.getElementById("analyzeBtn");
+const probabilityEl = document.getElementById("probability");
+const arrowEl = document.getElementById("arrow");
+
+function updateGauge(value) {
+  if (!probabilityEl || !arrowEl) return;
+  const clamped = Math.max(0, Math.min(100, Number(value) || 0));
+  const angle = -90 + (clamped / 100) * 180;
+  arrowEl.style.transform = `rotate(${angle}deg)`;
+  probabilityEl.innerText = `${Math.round(clamped)}%`;
+}
 
 function connectWs(result) {
   const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${result.analysis_id}`);
@@ -23,6 +33,10 @@ function connectWs(result) {
         statusEl.innerText = finalScore != null
           ? `Final score: ${finalScore}`
           : "Analysis complete";
+        if (finalScore != null) {
+          const asPercent = finalScore <= 1 ? finalScore * 100 : finalScore;
+          updateGauge(asPercent);
+        }
         return;
       }
       statusEl.innerText = `Stage complete: ${data.stage}`;
@@ -67,3 +81,7 @@ analyzeBtn.onclick = async () => {
     console.error(err);
   }
 };
+
+fileInput.addEventListener("change", () => {
+  statusEl.innerText = fileInput.files?.[0] ? "File uploaded" : "No file selected";
+});

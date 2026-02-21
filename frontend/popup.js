@@ -4,7 +4,16 @@ const statusEl = document.getElementById("status");
 const chooseBtn = document.getElementById("chooseBtn");
 const analyzeBtn = document.getElementById("analyzeBtn");
 const fileInput = document.getElementById("videoInput");
-const fileNameEl = document.getElementById("fileName");
+const probabilityEl = document.getElementById("probability");
+const arrowEl = document.getElementById("arrow");
+
+function updateGauge(value) {
+  if (!probabilityEl || !arrowEl) return;
+  const clamped = Math.max(0, Math.min(100, Number(value) || 0));
+  const angle = -90 + (clamped / 100) * 180;
+  arrowEl.style.transform = `rotate(${angle}deg)`;
+  probabilityEl.innerText = `${Math.round(clamped)}%`;
+}
 
 chooseBtn.onclick = () => {
   fileInput.click();
@@ -12,7 +21,7 @@ chooseBtn.onclick = () => {
 
 fileInput.onchange = () => {
   const file = fileInput.files?.[0];
-  fileNameEl.innerText = file ? file.name : "No file chosen";
+  statusEl.innerText = file ? "File uploaded" : "No file selected";
 };
 
 analyzeBtn.onclick = async () => {
@@ -40,6 +49,8 @@ analyzeBtn.onclick = async () => {
     const data = await res.json();
     const final = data.final;
     if (final && typeof final.final_score !== "undefined") {
+      const asPercent = final.final_score <= 1 ? final.final_score * 100 : final.final_score;
+      updateGauge(asPercent);
       statusEl.innerText = `Final: ${final.verdict} (${final.final_score})`;
     } else {
       statusEl.innerText = "Analysis completed";
