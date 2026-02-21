@@ -1,0 +1,63 @@
+import torch
+import torch.nn as nn
+
+class CRNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(1, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d((2,2)),
+
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d((2,2)),
+
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d((2,2))
+        )
+
+        self.rnn = nn.LSTM(
+            input_size=128,
+            hidden_size=128,
+            num_layers=2,
+            batch_first=True
+        )
+
+        self.fc = nn.Linear(128, 1)
+
+    def forward(self, x):
+        x = self.cnn(x)
+
+        # shape: (B, C, F, T)
+        x = torch.mean(x, dim=2)  # global average over freq
+
+        x = x.permute(0, 2, 1)  # (B, T, C)
+
+        x, _ = self.rnn(x)
+
+        x = x[:, -1, :]
+        x = self.fc(x)
+
+        return torch.sigmoid(x)
+    
+
+def load_audio_model():
+    model = CRNN()
+
+    checkpoint = torch.load(
+        "weights/audio_model.pth",
+        map_location="cpu",
+        weights_only=False   # <-- ADD THIS
+    )
+
+    model.load_state_dict(checkpoint["model_state"])
+
+    threshold = checkpoint["threshold"]
+
+    return model, threshold
