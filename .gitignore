@@ -14,3 +14,9 @@ Thumbs.db
 .idea/
 *.swp
 
+audio_dataset/
+*.wav
+*.mp3
+*.mp4
+__pycache__/
+*.pth
