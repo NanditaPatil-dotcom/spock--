@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepVerify Analyzer</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="app-page">
+    <main class="container">
+      <header class="header">
+        <h1>DeepVerify</h1>
+        <p>Upload an .mp4 file and run deepfake analysis.</p>
+      </header>
+
+      <section class="card">
+        <label for="videoUrl" class="label">Video URL (optional)</label>
+        <input id="videoUrl" type="url" placeholder="https://example.com/video.mp4" class="input" />
+
+        <label for="videoFile" class="label">Choose .mp4 file</label>
+        <input id="videoFile" type="file" accept=".mp4,video/mp4" class="file-input" />
+
+        <button id="analyzeBtn" type="button" class="button">Analyze</button>
+        <p id="errorText" class="error hidden"></p>
+      </section>
+
+      <section class="card">
+        <div class="row-between">
+          <h2>Progress</h2>
+          <span id="socketState" class="pill pill-neutral">Idle</span>
+        </div>
+        <p id="progressText" class="progress-text">Waiting for analysis...</p>
+        <div class="progress-track">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card score-card">
+          <p class="kicker">Video Score</p>
+          <p id="videoScore" class="score">-</p>
+          <p id="videoStatus" class="status">-</p>
+        </article>
+
+        <article class="card score-card">
+          <p class="kicker">Audio Score</p>
+          <p id="audioScore" class="score">-</p>
+          <p id="audioStatus" class="status">-</p>
+        </article>
+
+        <article class="card score-card">
+          <p class="kicker">Metadata Score</p>
+          <p id="metadataScore" class="score">-</p>
+          <p id="metadataStatus" class="status">-</p>
+        </article>
+
+        <article class="card score-card">
+          <p class="kicker">Final Trust Score</p>
+          <p id="finalScore" class="score">-</p>
+          <p id="verdict" class="pill pill-neutral">-</p>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Grad-CAM Heatmap</h2>
+        <div class="heatmap-box">
+          <img id="heatmapImage" alt="Grad-CAM Heatmap" class="hidden heatmap" />
+          <p id="heatmapPlaceholder" class="muted">No heatmap yet.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

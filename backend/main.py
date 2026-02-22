@@ -3,8 +3,9 @@ import asyncio
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from celery.result import AsyncResult
 
@@ -28,8 +29,8 @@ TEMP_DIR = BASE_DIR / "temp"
 app.mount("/temp", StaticFiles(directory=TEMP_DIR), name="temp")
 
 
-def _enqueue_analysis(video_path: str):
-    analysis_id = str(uuid4())
+def _enqueue_analysis(video_path: str, analysis_id: str | None = None):
+    analysis_id = analysis_id or str(uuid4())
 
     video_task = task_video_analysis.delay(video_path)
     audio_task = task_audio_analysis.delay(video_path)
@@ -44,8 +45,11 @@ def _enqueue_analysis(video_path: str):
 
 
 
-@app.post("/analyse")
-async def analyse(file: UploadFile = File(...)):
+@app.post("/analyze")
+async def analyze(
+    file: UploadFile = File(...),
+    analysis_id: str | None = Form(default=None),
+):
     suffix = Path(file.filename or "upload.mp4").suffix or ".mp4"
     temp_path = BASE_DIR / "temp" / "uploads" / f"upload_{uuid4().hex}{suffix}"
     temp_path.parent.mkdir(parents=True, exist_ok=True)
@@ -57,7 +61,7 @@ async def analyse(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Failed to save upload: {exc}") from exc
 
     video_path = str(temp_path.resolve())
-    queued = _enqueue_analysis(video_path)
+    queued = _enqueue_analysis(video_path, analysis_id=analysis_id)
 
     try:
         video_result = AsyncResult(queued["video_task_id"], app=celery).get(timeout=180)
@@ -75,7 +79,7 @@ async def analyse(file: UploadFile = File(...)):
             heatmap_url = f"/temp/{rel_path.as_posix()}"
         except Exception:
             heatmap_url = None
-
+    
     return {
         "analysis_id": queued["analysis_id"],
         "final_score": final["final_score"],
@@ -104,8 +108,38 @@ async def websocket_endpoint(websocket: WebSocket, analysis_id: str):
         sent_video = False
         sent_audio = False
         sent_meta = False
+        last_states = {"video": None, "audio": None, "metadata": None}
+        start_time = asyncio.get_event_loop().time()
 
         while True:
+            elapsed = asyncio.get_event_loop().time() - start_time
+            if elapsed > 300:
+                await websocket.send_json({
+                    "stage": "error",
+                    "result": {"message": "Analysis timed out. Ensure Celery worker is running."}
+                })
+                await websocket.close()
+                break
+
+            if video_result.failed() or audio_result.failed() or metadata_result.failed():
+                await websocket.send_json({
+                    "stage": "error",
+                    "result": {"message": "A background analysis task failed."}
+                })
+                await websocket.close()
+                break
+
+            current_states = {
+                "video": video_result.state,
+                "audio": audio_result.state,
+                "metadata": metadata_result.state,
+            }
+            if current_states != last_states:
+                await websocket.send_json({
+                    "stage": "task_state",
+                    "result": current_states,
+                })
+                last_states = current_states.copy()
 
             if video_result.ready() and not sent_video:
                 await websocket.send_json({
@@ -146,3 +180,5 @@ async def websocket_endpoint(websocket: WebSocket, analysis_id: str):
 
     except Exception:
         await websocket.close()
+
+
