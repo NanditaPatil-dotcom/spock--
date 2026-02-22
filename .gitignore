@@ -21,7 +21,14 @@ Thumbs.db
 __pycache__/
 *.pth
 dump.rdb
+**/dump.rdb
 *.rdb
 
 backend/test_full_pipeline.py
 backend/media
+temp/
+backend/temp/
+temp_audio/
+backend/temp_audio/
+temp_meta/
+backend/temp_meta/
