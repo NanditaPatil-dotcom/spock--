@@ -4,7 +4,9 @@ import torch
 import numpy as np
 import subprocess
 import time
+import shutil
 from pathlib import Path
+from uuid import uuid4
 from backend.celery_app import celery
 from facenet_pytorch import MTCNN
 from pytorch_grad_cam import GradCAM
@@ -24,17 +26,15 @@ TEMP_DIR = BASE_DIR / "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 #frame extraction
-def extract_frames(video_path):
-
-    for f in os.listdir(TEMP_DIR):
-        os.remove(os.path.join(TEMP_DIR, f))
+def extract_frames(video_path, work_dir: Path):
+    work_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
         "ffmpeg",
         "-i", video_path,
         "-vf", "fps=1",
         "-frames:v", "5",
-        str(TEMP_DIR / "frame_%03d.jpg")
+        str(work_dir / "frame_%03d.jpg")
     ]
 
     result = subprocess.run(
@@ -43,17 +43,24 @@ def extract_frames(video_path):
     if result.returncode != 0:
         return []
 
-    frames= sorted([os.path.join(TEMP_DIR, f)
-                     for f in os.listdir(TEMP_DIR)
+    frames= sorted([os.path.join(work_dir, f)
+                     for f in os.listdir(work_dir)
                      if f.endswith(".jpg")
                      ])
     return frames
 
 mtcnn = MTCNN(keep_all=False, device=DEVICE)
+mtcnn_cpu = MTCNN(keep_all=False, device=torch.device("cpu"))
 
 def detect_face(image):
     rgb_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    boxes, _ = mtcnn.detect(rgb_img)
+    try:
+        boxes, _ = mtcnn.detect(rgb_img)
+    except RuntimeError as exc:
+        if "Adaptive pool MPS" in str(exc):
+            boxes, _ = mtcnn_cpu.detect(rgb_img)
+        else:
+            raise
     if boxes is None:
         return None
 
@@ -96,7 +103,7 @@ def predict(tensor):
 def aggregate_scores(scores):
     return float(sum(scores) / len(scores))
 
-def generate_gradcam(tensor):
+def generate_gradcam(tensor, work_dir: Path):
     try:
         original_device = next(model.parameters()).device
 
@@ -114,7 +121,7 @@ def generate_gradcam(tensor):
         rgb_img = tensor.squeeze().permute(1, 2, 0).cpu().numpy()
         heatmap = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
 
-        heatmap_path = os.path.join(TEMP_DIR, "heatmap.jpg")
+        heatmap_path = os.path.join(work_dir, "heatmap.jpg")
         cv2.imwrite(heatmap_path, heatmap)
 
         model.to(original_device)
@@ -140,7 +147,8 @@ def analyze_video(video_path):
                 "error": f"File not found: {video_path}",
             }
 
-    frame_paths = extract_frames(str(resolved_video_path))
+    work_dir = TEMP_DIR / f"frames_{uuid4().hex}"
+    frame_paths = extract_frames(str(resolved_video_path), work_dir)
 
     scores = []
     last_tensor = None
@@ -163,14 +171,20 @@ def analyze_video(video_path):
         last_tensor = tensor
 
     if len(scores) == 0:
+        shutil.rmtree(work_dir, ignore_errors=True)
         return {
             "type": "video",
             "video_score": 0.5,
             "status": "No Face Detected"
         }
 
-    final_score = 0.7 * max(scores) + 0.3 * (sum(scores) / len(scores))
-    margin = 0.02
+    mean_score = float(np.mean(scores))
+    trimmed_mean = mean_score
+    if len(scores) >= 4:
+        trimmed = sorted(scores)[1:-1]
+        trimmed_mean = float(np.mean(trimmed))
+    final_score = 0.85 * trimmed_mean + 0.15 * float(max(scores))
+    margin = 0.05
     if final_score > THRESHOLD + margin:
         status = "Likely Fake"
     elif final_score < THRESHOLD - margin:
@@ -181,13 +195,17 @@ def analyze_video(video_path):
     result = {
         "type": "video",
         "video_score": final_score,
-        "status": status
+        "status": status,
+        "frames_used": len(scores),
+        "threshold": THRESHOLD,
     }
 
     if final_score > THRESHOLD+margin and last_tensor is not None:
-        heatmap_path = generate_gradcam(last_tensor)
+        heatmap_path = generate_gradcam(last_tensor, work_dir)
         if heatmap_path:
             result["heatmap"] = heatmap_path
+    else:
+        shutil.rmtree(work_dir, ignore_errors=True)
 
     print(f"[VIDEO] Score: {final_score:.3f} | Time: {time.time() - start_time:.2f}s")
 

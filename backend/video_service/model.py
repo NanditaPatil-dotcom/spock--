@@ -31,6 +31,7 @@ def load_model():
             ckpt = torch.load(weights_path, map_location="cpu")
     state_dict = ckpt.get("model_state", ckpt.get("state_dict", ckpt)) if isinstance(ckpt, dict) else ckpt
     threshold = ckpt.get("threshold", 0.7) if isinstance(ckpt, dict) else 0.7
+    threshold = float(threshold)
 
     if isinstance(state_dict, dict) and not any(k.startswith("backbone.") for k in state_dict.keys()):
         new_state = {}

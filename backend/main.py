@@ -42,7 +42,8 @@ def _enqueue_analysis(video_path: str):
 @app.post("/analyse")
 async def analyse(file: UploadFile = File(...)):
     suffix = Path(file.filename or "upload.mp4").suffix or ".mp4"
-    temp_path = Path("temp") / f"upload_{uuid4().hex}{suffix}"
+    base_dir = Path(__file__).resolve().parent
+    temp_path = base_dir / "temp" / "uploads" / f"upload_{uuid4().hex}{suffix}"
     temp_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -65,10 +66,8 @@ async def analyse(file: UploadFile = File(...)):
 
     return {
         "analysis_id": queued["analysis_id"],
-        "video_result": video_result,
-        "audio_result": audio_result,
-        "metadata_result": metadata_result,
-        "final": final,
+        "final_score": final["final_score"],
+        "verdict": final["verdict"],
     }
 
 @app.websocket("/ws/{analysis_id}")

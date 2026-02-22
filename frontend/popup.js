@@ -47,11 +47,8 @@ analyzeBtn.onclick = async () => {
     }
 
     const data = await res.json();
-    const final = data.final;
-    if (final && typeof final.final_score !== "undefined") {
-      const asPercent = final.final_score <= 1 ? final.final_score * 100 : final.final_score;
-      updateGauge(asPercent);
-      statusEl.innerText = `Final: ${final.verdict} (${final.final_score})`;
+    if (typeof data.final_score !== "undefined") {
+      statusEl.innerText = `Final: ${data.verdict} (${data.final_score})`;
     } else {
       statusEl.innerText = "Analysis completed";
     }

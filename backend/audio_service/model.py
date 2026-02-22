@@ -50,12 +50,17 @@ class CRNN(nn.Module):
 
 def load_audio_model():
     model = CRNN()
-    weights_path = Path(__file__).resolve().parent.parent / "weights" / "audio_model.pth"
+    weights_dir = Path(__file__).resolve().parent.parent / "weights"
+    candidate_paths = [weights_dir / "audio_model.pth"]
+    weights_path = next((p for p in candidate_paths if p.exists()), None)
+    if weights_path is None:
+        checked = ", ".join(str(p) for p in candidate_paths)
+        raise FileNotFoundError(f"Audio model weights not found. Checked: {checked}")
 
     checkpoint = torch.load(
         weights_path,
         map_location="cpu",
-        weights_only=False   # <-- ADD THIS
+        weights_only=False
     )
 
     model.load_state_dict(checkpoint["model_state"])

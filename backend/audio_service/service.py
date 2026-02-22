@@ -1,5 +1,8 @@
 import os
 import subprocess
+
+os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
+
 import librosa
 import numpy as np
 import torch
@@ -15,10 +18,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 TEMP_DIR = BASE_DIR / "temp_audio"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-model, THRESHOLD = load_audio_model()
-
-model.to(DEVICE)
-model.eval()
+model = None
+THRESHOLD = None
+MODEL_LOAD_ERROR = None
+try:
+    model, THRESHOLD = load_audio_model()
+    model.to(DEVICE)
+    model.eval()
+except Exception as exc:
+    MODEL_LOAD_ERROR = str(exc)
 
 
 # --------------------
@@ -73,6 +81,13 @@ def preprocess(mel_db):
 
 
 def analyze_audio(video_path):
+    if model is None:
+        return {
+            "type": "audio",
+            "audio_probability": 0.0,
+            "status": "Error",
+            "error": f"Audio model unavailable: {MODEL_LOAD_ERROR}",
+        }
 
     start = time.time()
     resolved_video_path = Path(video_path)
@@ -100,26 +115,39 @@ def analyze_audio(video_path):
             "error": "ffmpeg failed to extract audio",
         }
 
-    audio, sr = load_audio(wav_path)
+    try:
+        audio, sr = load_audio(wav_path)
 
-    if sr != 16000:
-        return {"error": "Sample rate mismatch"}
+        if sr != 16000:
+            return {
+                "type": "audio",
+                "audio_probability": 0.0,
+                "status": "Error",
+                "error": "Sample rate mismatch",
+            }
 
-    mel = create_mel(audio, sr)
-    mel = (mel - mel.mean()) / (mel.std() + 1e-6)
+        mel = create_mel(audio, sr)
+        mel = (mel - mel.mean()) / (mel.std() + 1e-6)
 
-    MAX_LEN = 300
+        MAX_LEN = 300
 
-    if mel.shape[1] < MAX_LEN:
-      pad_size = MAX_LEN - mel.shape[1]
-      mel = np.pad(mel, ((0,0),(0,pad_size)), mode='constant')
-    else:
-      mel = mel[:, :MAX_LEN]
+        if mel.shape[1] < MAX_LEN:
+            pad_size = MAX_LEN - mel.shape[1]
+            mel = np.pad(mel, ((0,0),(0,pad_size)), mode='constant')
+        else:
+            mel = mel[:, :MAX_LEN]
 
-    tensor = preprocess(mel)
+        tensor = preprocess(mel)
 
-    with torch.no_grad():
-        prob = model(tensor).item()
+        with torch.no_grad():
+            prob = model(tensor).item()
+    except Exception as exc:
+        return {
+            "type": "audio",
+            "audio_probability": 0.0,
+            "status": "Error",
+            "error": f"Audio analysis failed: {exc}",
+        }
 
     if prob > THRESHOLD + 0.02:
       status = "Likely Fake"
