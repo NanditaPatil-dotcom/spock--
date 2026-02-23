@@ -3,10 +3,16 @@ const API = "http://127.0.0.1:8000";
 const statusEl = document.getElementById("status");
 const chooseBtn = document.getElementById("chooseBtn");
 const analyzeBtn = document.getElementById("analyzeBtn");
+const heatmapBtn = document.getElementById("heatmapBtn");
 const fileInput = document.getElementById("videoInput");
 const probabilityEl = document.getElementById("probability");
 const arrowEl = document.getElementById("arrow");
 const fakenessEl = document.getElementById("fakenessValue");
+const heatmapModal = document.getElementById("heatmapModal");
+const heatmapImage = document.getElementById("heatmapImage");
+const closeHeatmapBtn = document.getElementById("closeHeatmapBtn");
+
+let latestHeatmapUrl = null;
 
 function updateGauge(value) {
   if (!probabilityEl || !arrowEl) return;
@@ -34,7 +40,26 @@ chooseBtn.onclick = () => {
 fileInput.onchange = () => {
   const file = fileInput.files?.[0];
   statusEl.innerText = file ? "File uploaded" : "No file selected";
+  latestHeatmapUrl = null;
+  if (heatmapBtn) heatmapBtn.disabled = true;
 };
+
+if (heatmapBtn) {
+  heatmapBtn.onclick = () => {
+    if (!latestHeatmapUrl || !heatmapModal || !heatmapImage) return;
+    heatmapImage.src = latestHeatmapUrl;
+    heatmapModal.classList.add("show");
+  };
+}
+
+if (closeHeatmapBtn && heatmapModal) {
+  closeHeatmapBtn.onclick = () => heatmapModal.classList.remove("show");
+  heatmapModal.onclick = (event) => {
+    if (event.target === heatmapModal) {
+      heatmapModal.classList.remove("show");
+    }
+  };
+}
 
 analyzeBtn.onclick = async () => {
   const file = fileInput.files?.[0];
@@ -45,6 +70,8 @@ analyzeBtn.onclick = async () => {
 
   statusEl.innerText = "Starting analysis...";
   setResultValues(0);
+  latestHeatmapUrl = null;
+  if (heatmapBtn) heatmapBtn.disabled = true;
 
   try {
     const formData = new FormData();
@@ -63,6 +90,13 @@ analyzeBtn.onclick = async () => {
     if (typeof data.final_score !== "undefined") {
       statusEl.innerText = `Final: ${data.verdict} (${data.final_score})`;
       setResultValues(data.fakeness_score ?? data.final_score);
+      if (data.heatmap_url) {
+        latestHeatmapUrl = `${API}${data.heatmap_url}`;
+        if (heatmapBtn) heatmapBtn.disabled = false;
+      } else {
+        latestHeatmapUrl = null;
+        if (heatmapBtn) heatmapBtn.disabled = true;
+      }
     } else {
       statusEl.innerText = "Analysis completed";
     }

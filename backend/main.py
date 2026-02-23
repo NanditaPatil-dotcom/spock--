@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from celery.result import AsyncResult
 
 from backend.celery_app import celery
@@ -21,6 +22,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+BASE_DIR = Path(__file__).resolve().parent
+TEMP_DIR = BASE_DIR / "temp"
+app.mount("/temp", StaticFiles(directory=TEMP_DIR), name="temp")
 
 
 def _enqueue_analysis(video_path: str):
@@ -42,8 +47,7 @@ def _enqueue_analysis(video_path: str):
 @app.post("/analyse")
 async def analyse(file: UploadFile = File(...)):
     suffix = Path(file.filename or "upload.mp4").suffix or ".mp4"
-    base_dir = Path(__file__).resolve().parent
-    temp_path = base_dir / "temp" / "uploads" / f"upload_{uuid4().hex}{suffix}"
+    temp_path = BASE_DIR / "temp" / "uploads" / f"upload_{uuid4().hex}{suffix}"
     temp_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -63,11 +67,22 @@ async def analyse(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Analysis task failed: {exc}") from exc
 
     final = compute_final_score(video_result, audio_result, metadata_result)
+    heatmap_url = None
+    heatmap_path = video_result.get("heatmap")
+    if heatmap_path:
+        try:
+            rel_path = Path(heatmap_path).resolve().relative_to(TEMP_DIR.resolve())
+            heatmap_url = f"/temp/{rel_path.as_posix()}"
+        except Exception:
+            heatmap_url = None
 
     return {
         "analysis_id": queued["analysis_id"],
         "final_score": final["final_score"],
+        "fakeness_score": final["fakeness_score"],
+        "fakeness_percent": final["fakeness_percent"],
         "verdict": final["verdict"],
+        "heatmap_url": heatmap_url,
     }
 
 @app.websocket("/ws/{analysis_id}")
