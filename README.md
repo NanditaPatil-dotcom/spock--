@@ -1,4 +1,4 @@
-***Brownie Point: This project won under Best Women's Team at IEEE Kalpana 6.0 - Hack for Humanity***
+***Brownie point: This project won the Best Women’s Team award at IEEE Kalpana 6.0 – Hack for Humanity.***
 
 # Verifyy
 
